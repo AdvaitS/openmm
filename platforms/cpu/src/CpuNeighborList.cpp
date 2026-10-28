@@ -152,10 +152,15 @@ public:
             zperiodic = location[2]-minz;
         }
         else {
-            float scale2 = floorf(location[2]*recipBoxSize[2]);
+            // Positions have normally been wrapped into the box already, but rounding can put a coordinate exactly on
+            // the upper face.  Only wrap coordinates that are really outside the box.  Wrapping one on the face would
+            // shift it by a box vector, which changes its x coordinate in a triclinic box.  Instead let it be clamped
+            // into the last voxel.
+
+            float scale2 = (location[2] < 0 || location[2] > periodicBoxSize[2] ? floorf(location[2]*recipBoxSize[2]) : 0.0f);
             yperiodic = location[1]-periodicBoxVectors[2][1]*scale2;
             zperiodic = location[2]-periodicBoxVectors[2][2]*scale2;
-            float scale1 = floorf(yperiodic*recipBoxSize[1]);
+            float scale1 = (yperiodic < 0 || yperiodic > periodicBoxSize[1] ? floorf(yperiodic*recipBoxSize[1]) : 0.0f);
             yperiodic -= periodicBoxVectors[1][1]*scale1;
         }
         int y = max(0, min(ny-1, int(floorf(yperiodic / voxelSizeY))));

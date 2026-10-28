@@ -46,6 +46,8 @@
 using namespace OpenMM;
 using namespace std;
 
+void checkNeighborList(int numParticles, const AlignedArray<float>& positions, const vector<set<int> >& exclusions, const Vec3* boxVectors, bool periodic, float cutoff, int blockSize);
+
 void testNeighborList(bool periodic, bool triclinic) {
     const int numParticles = 500;
     const float cutoff = 2.0f;
@@ -76,6 +78,11 @@ void testNeighborList(bool periodic, bool triclinic) {
             exclusions[i-j].insert(i);
         }
     }
+    checkNeighborList(numParticles, positions, exclusions, boxVectors, periodic, cutoff, blockSize);
+}
+
+void checkNeighborList(int numParticles, const AlignedArray<float>& positions, const vector<set<int> >& exclusions, const Vec3* boxVectors, bool periodic, float cutoff, int blockSize) {
+    const float boxSize[3] = {(float) boxVectors[0][0], (float) boxVectors[1][1], (float) boxVectors[2][2]};
     ThreadPool threads;
     CpuNeighborList neighborList(blockSize);
     neighborList.computeNeighborList(numParticles, positions, exclusions, boxVectors, periodic, cutoff, threads);
@@ -117,6 +124,34 @@ void testNeighborList(bool periodic, bool triclinic) {
         }
 }
 
+void testParticlesOnBoxFace() {
+    // Positions are wrapped into the box in double precision, then converted to float.  This can round a coordinate
+    // to exactly the box height.  Make sure that doesn't cause any neighbors to be missed in a triclinic box.
+
+    const int numParticles = 500;
+    const float cutoff = 2.0f;
+    Vec3 boxVectors[3];
+    boxVectors[0] = Vec3(10, 0, 0);
+    boxVectors[1] = Vec3(4, 9, 0);
+    boxVectors[2] = Vec3(-3, -3.5, 11);
+    const float boxSize[3] = {(float) boxVectors[0][0], (float) boxVectors[1][1], (float) boxVectors[2][2]};
+    const int blockSize = 8;
+    OpenMM_SFMT::SFMT sfmt;
+    init_gen_rand(0, sfmt);
+    AlignedArray<float> positions(4*numParticles);
+    for (int i = 0; i < 4*numParticles; i++)
+        if (i%4 < 3)
+            positions[i] = boxSize[i%4]*genrand_real2(sfmt);
+    for (int i = 0; i < 40; i++)
+        positions[4*i+1] = boxSize[1];
+    for (int i = 40; i < 80; i++)
+        positions[4*i+2] = boxSize[2];
+    vector<set<int> > exclusions(numParticles);
+    for (int i = 0; i < numParticles; i++)
+        exclusions[i].insert(i);
+    checkNeighborList(numParticles, positions, exclusions, boxVectors, true, cutoff, blockSize);
+}
+
 int main() {
     try {
         if (!CpuPlatform::isProcessorSupported()) {
@@ -126,6 +161,7 @@ int main() {
         testNeighborList(false, false);
         testNeighborList(true, false);
         testNeighborList(true, true);
+        testParticlesOnBoxFace();
     }
     catch(const exception& e) {
         cout << "exception: " << e.what() << endl;
