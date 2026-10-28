@@ -210,5 +210,22 @@ class TestPdbxFile(unittest.TestCase):
             self.assertEqual(id, res.id)
             self.assertEqual(code, res.insertionCode)
 
+    def testManyChains(self):
+        """Test writing a file with more than 26 chains."""
+        top = Topology()
+        atoms = []
+        for i in range(30):
+            chain = top.addChain()
+            res = top.addResidue('UNK', chain)
+            atoms.append(top.addAtom('C', elem.carbon, res))
+        top.addBond(atoms[0], atoms[-1])
+        output = StringIO()
+        PDBxFile.writeFile(top, [Vec3(0.2*i, 0, 0) for i in range(30)]*nanometers, output)
+        pdbx = PDBxFile(StringIO(output.getvalue()))
+        ids = [chain.id for chain in pdbx.topology.chains()]
+        self.assertEqual(30, len(set(ids)))
+        self.assertEqual(['Y', 'Z', 'AA', 'AB', 'AC', 'AD'], ids[24:])
+        self.assertEqual([(0, 29)], [(a1.index, a2.index) for a1, a2 in pdbx.topology.bonds()])
+
 if __name__ == '__main__':
     unittest.main()

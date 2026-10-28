@@ -386,7 +386,7 @@ class PDBxFile(object):
                     resIds[res] = res.id
             else:
                 for (chainIndex, chain) in enumerate(topology.chains()):
-                    chainIds[chain] = chr(ord('A')+chainIndex%26)
+                    chainIds[chain] = PDBxFile._generateChainId(chainIndex)
                     for (resIndex, res) in enumerate(chain.residues()):
                         resIds[res] = resIndex+1
             for i, (atom1, atom2) in enumerate(bonds):
@@ -430,6 +430,16 @@ class PDBxFile(object):
         print('_atom_site.pdbx_PDB_model_num', file=file)
 
     @staticmethod
+    def _generateChainId(index):
+        """Generate the chain ID for the chain with a given index: A-Z, then AA, AB, etc."""
+        id = ''
+        index += 1
+        while index > 0:
+            index, digit = divmod(index-1, 26)
+            id = chr(ord('A')+digit) + id
+        return id
+
+    @staticmethod
     def writeModel(topology, positions, file=sys.stdout, modelIndex=1, keepIds=False):
         """Write out a model to a PDBx/mmCIF file.
 
@@ -466,7 +476,7 @@ class PDBxFile(object):
             if keepIds:
                 chainName = chain.id
             else:
-                chainName = chr(ord('A')+chainIndex%26)
+                chainName = PDBxFile._generateChainId(chainIndex)
             residues = list(chain.residues())
             for (resIndex, res) in enumerate(residues):
                 if keepIds:
