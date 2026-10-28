@@ -117,28 +117,34 @@ class PDBxFile(object):
         lastResId = None
         lastInsertionCode = ''
         atomTable = {}
+        uniqueAtomTable = {}
         atomsInResidue = set()
         models = []
         for row in atomData.getRowList():
+            if resInsertionCol == -1:
+                insertionCode = ''
+            else:
+                insertionCode = row[resInsertionCol]
+            if insertionCode in ('.', '?'):
+                insertionCode = ''
             atomKey = ((row[resIdCol], row[chainIdCol], row[atomNameCol]))
+
+            # label_seq_id is '.' for all non-polymer residues, so include the author residue number and insertion code
+            # to distinguish them.
+
+            uniqueAtomKey = (atomKey, row[resNumCol], insertionCode)
             model = ('1' if modelCol == -1 else row[modelCol])
             if model not in models:
                 models.append(model)
                 self._positions.append([])
             modelIndex = models.index(model)
-            if row[altIdCol] != '.' and atomKey in atomTable and len(self._positions[modelIndex]) > atomTable[atomKey].index:
+            if row[altIdCol] != '.' and uniqueAtomKey in uniqueAtomTable and len(self._positions[modelIndex]) > uniqueAtomTable[uniqueAtomKey].index:
                 # This row is an alternate position for an existing atom, so ignore it.
 
                 continue
             if modelIndex == 0:
                 # This row defines a new atom.
 
-                if resInsertionCol == -1:
-                    insertionCode = ''
-                else:
-                    insertionCode = row[resInsertionCol]
-                if insertionCode in ('.', '?'):
-                    insertionCode = ''
                 if lastChainId != row[chainIdCol] or (altChainIdCol != -1 and lastAltChainId != row[altChainIdCol]):
                     # The start of a new chain.
                     chain = top.addChain(row[chainIdCol])
@@ -171,12 +177,13 @@ class PDBxFile(object):
                     atomName = atomReplacements[atomName]
                 atom = top.addAtom(atomName, element, res, row[atomIdCol])
                 atomTable[atomKey] = atom
+                uniqueAtomTable[uniqueAtomKey] = atom
                 atomsInResidue.add(atomName)
             else:
                 # This row defines coordinates for an existing atom in one of the later models.
 
                 try:
-                    atom = atomTable[atomKey]
+                    atom = uniqueAtomTable[uniqueAtomKey]
                 except KeyError:
                     raise ValueError('Unknown atom %s in residue %s %s for model %s' % (row[atomNameCol], row[resNameCol], row[resNumCol], model))
                 if atom.index != len(self._positions[modelIndex]):

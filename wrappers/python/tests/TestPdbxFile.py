@@ -210,5 +210,48 @@ class TestPdbxFile(unittest.TestCase):
             self.assertEqual(id, res.id)
             self.assertEqual(code, res.insertionCode)
 
+    def testAltLocWaters(self):
+        """Test reading non-polymer residues that have alternate locations."""
+        header = """data_test
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_seq_id
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.auth_seq_id
+_atom_site.auth_asym_id
+_atom_site.pdbx_PDB_model_num
+"""
+        rows = [
+            "HETATM 1 O O A HOH B . 1.0 1.0 1.0 101 A",
+            "HETATM 2 O O B HOH B . 1.5 1.0 1.0 101 A",
+            "HETATM 3 O O A HOH B . 5.0 5.0 5.0 102 A",
+            "HETATM 4 O O . HOH B . 9.0 9.0 9.0 103 A",
+            "HETATM 5 O O A HOH B . 13.0 13.0 13.0 104 A",
+            "HETATM 6 O O B HOH B . 13.5 13.0 13.0 104 A"
+        ]
+        model1 = [row+' 1' for row in rows]
+        model2 = [row+' 2' for row in rows]
+
+        # All four waters should be present, using the first location for each one.
+
+        pdbx = PDBxFile(StringIO(header+'\n'.join(model1)))
+        self.assertEqual(['101', '102', '103', '104'], [res.id for res in pdbx.topology.residues()])
+        for pos, x in zip(pdbx.positions, [0.1, 0.5, 0.9, 1.3]):
+            self.assertAlmostEqual(x, pos[0].value_in_unit(nanometers))
+
+        # It should also work with multiple models.
+
+        pdbx = PDBxFile(StringIO(header+'\n'.join(model1+model2)))
+        self.assertEqual(4, pdbx.topology.getNumAtoms())
+        self.assertEqual(2, pdbx.getNumFrames())
+
 if __name__ == '__main__':
     unittest.main()
