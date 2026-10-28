@@ -210,5 +210,19 @@ class TestPdbxFile(unittest.TestCase):
             self.assertEqual(id, res.id)
             self.assertEqual(code, res.insertionCode)
 
+    def testFormalCharges(self):
+        """Test reading and writing formal charges."""
+        top = Topology()
+        chain = top.addChain()
+        res = top.addResidue('UNK', chain)
+        top.addAtom('N1', elem.nitrogen, res, formalCharge=1)
+        top.addAtom('O1', elem.oxygen, res, formalCharge=-1)
+        top.addAtom('C1', elem.carbon, res, formalCharge=0)
+        top.addAtom('C2', elem.carbon, res)
+        output = StringIO()
+        PDBxFile.writeFile(top, [Vec3(0.1*i, 0, 0) for i in range(4)]*nanometers, output)
+        pdbx = PDBxFile(StringIO(output.getvalue()))
+        self.assertEqual([1, -1, 0, None], [atom.formalCharge for atom in pdbx.topology.atoms()])
+
 if __name__ == '__main__':
     unittest.main()

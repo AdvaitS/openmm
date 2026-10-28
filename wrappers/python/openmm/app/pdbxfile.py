@@ -107,6 +107,7 @@ class PDBxFile(object):
             if len(altIdSet) > len(idSet):
                 chainIdCol, altChainIdCol = (altChainIdCol, chainIdCol)
         elementCol = atomData.getAttributeIndex('type_symbol')
+        formalChargeCol = atomData.getAttributeIndex('pdbx_formal_charge')
         altIdCol = atomData.getAttributeIndex('label_alt_id')
         modelCol = atomData.getAttributeIndex('pdbx_PDB_model_num')
         xCol = atomData.getAttributeIndex('Cartn_x')
@@ -166,10 +167,16 @@ class PDBxFile(object):
                     element = elem.get_by_symbol(row[elementCol])
                 except KeyError:
                     pass
+                formalCharge = None
+                if formalChargeCol != -1 and row[formalChargeCol] not in ('.', '?'):
+                    try:
+                        formalCharge = int(row[formalChargeCol])
+                    except ValueError:
+                        pass
                 atomName = row[atomNameCol]
                 if atomName in atomReplacements:
                     atomName = atomReplacements[atomName]
-                atom = top.addAtom(atomName, element, res, row[atomIdCol])
+                atom = top.addAtom(atomName, element, res, row[atomIdCol], formalCharge)
                 atomTable[atomKey] = atom
                 atomsInResidue.add(atomName)
             else:
@@ -485,8 +492,12 @@ class PDBxFile(object):
                         symbol = atom.element.symbol
                     else:
                         symbol = '?'
-                    line = "%s  %5d %-3s %-4s . %-4s %s ? %5s %s %10.4f %10.4f %10.4f  0.0  0.0  ?  ?  ?  ?  ?  .  %5s %4s %s %4s %5d"
+                    if atom.formalCharge is not None:
+                        formalCharge = atom.formalCharge
+                    else:
+                        formalCharge = '?'
+                    line = "%s  %5d %-3s %-4s . %-4s %s ? %5s %s %10.4f %10.4f %10.4f  0.0  0.0  ?  ?  ?  ?  ?  %s  %5s %4s %s %4s %5d"
                     print(line % (recordName, atomIndex, symbol, atom.name, res.name, chainName, resId, resIC, coords[0], coords[1], coords[2],
-                                  resId, res.name, chainName, atom.name, modelIndex), file=file)
+                                  formalCharge, resId, res.name, chainName, atom.name, modelIndex), file=file)
                     posIndex += 1
                     atomIndex += 1
